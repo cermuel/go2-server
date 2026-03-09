@@ -2,18 +2,18 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-} from '@nestjs/common';
-import { CreateUrlDto } from './dto/create-url.dto';
-import { UpdateUrlDto } from './dto/update-url.dto';
-import { EntityManager, Repository } from 'typeorm';
-import { Url } from './entities/url.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { generateShortCode } from 'src/utils/helpers';
-import { Email } from './entities/email.entity';
-import { Click } from './entities/click.entity';
-import { Request, Response } from 'express';
-import { UAParser } from 'ua-parser-js';
-import * as geoip from 'geoip-lite';
+} from "@nestjs/common";
+import { CreateUrlDto } from "./dto/create-url.dto";
+import { UpdateUrlDto } from "./dto/update-url.dto";
+import { EntityManager, Repository } from "typeorm";
+import { Url } from "./entities/url.entity";
+import { InjectRepository } from "@nestjs/typeorm";
+import { generateShortCode } from "src/utils/helpers";
+import { Email } from "./entities/email.entity";
+import { Click } from "./entities/click.entity";
+import { Request, Response } from "express";
+import { UAParser } from "ua-parser-js";
+import * as geoip from "geoip-lite";
 
 @Injectable()
 export class UrlService {
@@ -40,9 +40,9 @@ export class UrlService {
 
     const alreadyLinked = await manager
       .createQueryBuilder()
-      .select('1')
-      .from('url_emails_email', 'ue')
-      .where('ue.emailId = :emailId AND ue.urlId = :urlId', {
+      .select("1")
+      .from("url_emails_email", "ue")
+      .where("ue.emailId = :emailId AND ue.urlId = :urlId", {
         emailId: emailEntity.id,
         urlId: url.id,
       })
@@ -53,7 +53,7 @@ export class UrlService {
     emailEntity.url = [url];
     await manager
       .createQueryBuilder()
-      .relation(Email, 'url')
+      .relation(Email, "url")
       .of(emailEntity)
       .add(url);
   }
@@ -105,7 +105,7 @@ export class UrlService {
       relations: { clicks: true },
     });
 
-    if (!url) throw new NotFoundException(['Url not found']);
+    if (!url) throw new NotFoundException(["Url not found"]);
 
     const isAdminEmail = await this.emailRepository.findOne({
       where: {
@@ -117,7 +117,7 @@ export class UrlService {
 
     if (!isAdminEmail)
       throw new UnauthorizedException([
-        'This email is not an admin of this URL',
+        "This email is not an admin of this URL",
       ]);
 
     return url;
@@ -126,20 +126,24 @@ export class UrlService {
   async go2(customCode: string, res: Response, req: Request) {
     const url = await this.urlRepository.findOne({ where: { customCode } });
 
-    if (!url) throw new NotFoundException(['Url not found']);
+    if (!url) throw new NotFoundException(["Url not found"]);
 
-    const parser = new UAParser(req.headers['user-agent']);
+    const parser = new UAParser(req.headers["user-agent"]);
     const ua = parser.getResult();
 
-    const ip = req.ip ?? '';
+    const ip =
+      (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() ||
+      req.socket.remoteAddress ||
+      req.ip ||
+      "";
     const geo = geoip.lookup(ip);
 
     const click = this.clickRepository.create({
       url,
-      os: ua.os.name ?? '',
-      device: ua.device.type ?? 'desktop',
-      country: geo?.country ?? '',
-      city: geo?.city ?? '',
+      os: ua.os.name ?? "",
+      device: ua.device.type ?? "desktop",
+      country: geo?.country ?? "",
+      city: geo?.city ?? "",
     });
     await this.clickRepository.save(click);
 
