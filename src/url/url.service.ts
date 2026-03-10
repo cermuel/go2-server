@@ -138,12 +138,15 @@ export class UrlService {
       "";
     const geo = geoip.lookup(ip);
 
+    const geoRes = await fetch(`http://ip-api.com/json/${ip}`);
+    const cityGeo = await geoRes.json();
+
     const click = this.clickRepository.create({
       url,
       os: ua.os.name ?? "",
       device: ua.device.type ?? "desktop",
       country: geo?.country ?? "",
-      city: geo?.city ?? "",
+      city: geo?.city ?? cityGeo?.city ?? "",
     });
     await this.clickRepository.save(click);
 
