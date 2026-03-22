@@ -14,6 +14,8 @@ import { Click } from "./entities/click.entity";
 import { Request, Response } from "express";
 import { UAParser } from "ua-parser-js";
 import * as geoip from "geoip-lite";
+import { InjectQueue } from "@nestjs/bullmq";
+import { Queue } from "bullmq";
 
 @Injectable()
 export class UrlService {
@@ -25,6 +27,7 @@ export class UrlService {
     @InjectRepository(Click)
     private readonly clickRepository: Repository<Click>,
     private readonly entityManager: EntityManager,
+    @InjectQueue("go2-email") private readonly emailQueue: Queue,
   ) {}
 
   async createMail(url: Url, email: string, manager: EntityManager) {
@@ -77,7 +80,21 @@ export class UrlService {
       const url = manager.create(Url, { ...createUrlDto, customCode });
       await manager.save(url);
 
-      if (email) await this.createMail(url, email, manager);
+      if (email) {
+        await this.createMail(url, email, manager);
+        await this.emailQueue.add(
+          `process`,
+          {
+            destination: createUrlDto.destination,
+            email,
+            customCode,
+          },
+          {
+            jobId: `${email}-${customCode}`,
+            repeat: { pattern: "30 9 * * *" },
+          },
+        );
+      }
 
       return url;
     });
